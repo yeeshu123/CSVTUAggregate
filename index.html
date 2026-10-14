@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f8f7ff">
+    <title>CSVTU Analytics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+        :root {
+            color-scheme: light;
+            --bg: #f8f7ff;
+            --surface: #ffffff;
+            --ink: #1d1b36;
+            --muted: #77758f;
+            --line: #eceaf6;
+            --purple: #7157ff;
+            --purple-deep: #5135e8;
+            --mint: #3bd9bf;
+            --coral: #ff857f;
+            --gold: #ffce67;
+            --shadow: 0 16px 42px rgba(48, 36, 116, .08);
+            --shadow-soft: 0 8px 24px rgba(48, 36, 116, .06);
+            --radius-xl: 28px;
+            --radius-lg: 22px;
+            --radius-md: 16px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html { scroll-behavior: smooth; }
+        body {
+            min-height: 100vh;
+            color: var(--ink);
+            background:
+                radial-gradient(ellipse at 5% 0%, rgba(185, 171, 255, .22), transparent 34rem),
+                radial-gradient(ellipse at 100% 34%, rgba(59, 217, 191, .10), transparent 28rem),
+                var(--bg);
+            font-family: 'DM Sans', Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            padding: max(14px, env(safe-area-inset-top)) 16px max(34px, env(safe-area-inset-bottom));
+            overflow-x: hidden;
+        }
+        button, input { font: inherit; }
+        button, label, .upload-card { touch-action: manipulation; }
+        button { -webkit-appearance: none; }
+        :focus-visible { outline: 3px solid rgba(113, 87, 255, .55); outline-offset: 3px; }
+        .app-container { width: min(100%, 920px); margin: 0 auto; }
+
+        /* Top bar */
+        .header {
+            display: flex; justify-content: space-between; align-items: center; gap: 14px;
+            padding: 7px 2px 22px; animation: enter .65s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+        .brand-mark {
+            position: relative; flex: 0 0 44px; width: 44px; height: 44px; display: grid; place-items: center;
+            color: white; border-radius: 15px; font-size: 21px; font-weight: 800;
+            background: linear-gradient(145deg, #8c79ff, #5a3bea 75%); box-shadow: 0 8px 18px rgba(101, 74, 245, .27);
+            overflow: hidden;
+        }
+        .brand-mark::after { content: ''; position: absolute; width: 60px; height: 15px; background: rgba(255,255,255,.20); transform: rotate(-45deg) translateY(-15px); animation: shine 5s ease-in-out infinite; }
+        .brand-copy { min-width: 0; }
+        .brand-name { font: 700 1.05rem/1.15 'Space Grotesk', sans-serif; letter-spacing: -.045em; white-space: nowrap; }
+        .brand-kicker { color: var(--muted); text-transform: uppercase; letter-spacing: .12em; font-size: .64rem; font-weight: 800; margin-top: 4px; }
+        .share-btn {
+            min-height: 43px; border: 0; padding: 0 14px; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 7px;
+            color: white; font-weight: 800; font-size: .84rem; background: linear-gradient(135deg, #755bff, #5b3de8);
+            box-shadow: 0 7px 18px rgba(100, 75, 242, .22); cursor: pointer; transition: transform .18s, box-shadow .18s, filter .18s;
+        }
+        .share-btn:active { transform: scale(.96); box-shadow: 0 3px 8px rgba(100,75,242,.2); }
+        .share-btn:hover { filter: brightness(1.05); box-shadow: 0 10px 22px rgba(100,75,242,.27); }
+
+        /* Welcome / upload state */
+        .intro-hero {
+            position: relative; isolation: isolate; overflow: hidden; min-height: 214px; margin-bottom: 17px; padding: 26px 24px 24px;
+            border-radius: var(--radius-xl); color: white;
+            background: linear-gradient(118deg, #30216f 0%, #583cdb 54%, #826cff 100%);
+            box-shadow: 0 18px 38px rgba(75, 53, 171, .19); animation: enter .7s .06s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .intro-hero::before, .intro-hero::after { content: ''; position: absolute; z-index: -1; border-radius: 50%; pointer-events: none; }
+        .intro-hero::before { width: 230px; height: 230px; right: -48px; top: -104px; border: 1px solid rgba(255,255,255,.22); box-shadow: 0 0 0 21px rgba(255,255,255,.035), 0 0 0 43px rgba(255,255,255,.03); animation: slowSpin 24s linear infinite; }
+        .intro-hero::after { width: 150px; height: 150px; right: 18px; bottom: -105px; background: rgba(59,217,191,.35); filter: blur(4px); }
+        .eyebrow { display: inline-flex; align-items: center; gap: 7px; font-size: .69rem; text-transform: uppercase; letter-spacing: .13em; font-weight: 800; color: #d8d1ff; margin-bottom: 13px; }
+        .eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 4px rgba(59,217,191,.16); }
+        .intro-hero h1 { max-width: 490px; font: 700 clamp(1.8rem, 7.4vw, 2.65rem)/1.05 'Space Grotesk', sans-serif; letter-spacing: -.055em; }
+        .intro-hero h1 span { color: #aef7e9; }
+        .intro-hero p { max-width: 365px; color: rgba(255,255,255,.77); line-height: 1.55; font-size: .91rem; margin-top: 12px; }
+        .hero-spark { position: absolute; font-size: 1.45rem; animation: bob 3.4s ease-in-out infinite; }
+        .hero-spark.one { top: 30px; right: 28px; color: #ffe18c; }
+        .hero-spark.two { top: 96px; right: 68px; color: #9ff5e5; font-size: 1rem; animation-delay: -1.6s; }
+
+        .upload-card {
+            position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px;
+            min-height: 226px; padding: 27px 20px; margin-bottom: 16px; text-align: center; cursor: pointer;
+            background: rgba(255,255,255,.9); border: 1.5px dashed #bcb1ff; border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-soft); transition: transform .22s ease, border-color .22s ease, background .22s ease, box-shadow .22s ease;
+            animation: enter .7s .13s cubic-bezier(.2,.8,.2,1) both;
+        }
+        .upload-card::before { content: ''; position: absolute; inset: 7px; border-radius: 21px; border: 1px solid rgba(113,87,255,.07); pointer-events: none; }
+        .upload-card:active { transform: scale(.985); background: #fbfaff; }
+        .upload-card:hover { border-color: var(--purple); box-shadow: 0 15px 34px rgba(91,62,222,.11); }
+        .upload-icon {
+            display: grid; place-items: center; width: 66px; height: 66px; margin-bottom: 3px; border-radius: 23px;
+            font-size: 1.9rem; background: linear-gradient(145deg, #eeeaff, #e4fdf7); box-shadow: inset 0 0 0 1px rgba(113,87,255,.08);
+            animation: bob 3.6s ease-in-out infinite;
+        }
+        .upload-card h3 { font: 700 1.16rem/1.3 'Space Grotesk', sans-serif; letter-spacing: -.025em; }
+        .upload-card p { color: var(--muted); font-size: .86rem; line-height: 1.5; max-width: 310px; }
+        .upload-hint { display: inline-flex; align-items: center; gap: 6px; color: var(--purple-deep); background: #f0edff; border-radius: 99px; padding: 7px 11px; margin-top: 6px; font-size: .74rem; font-weight: 800; }
+        #file-upload { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        #loading-text, #error-text { display: none; border-radius: 15px; margin: 12px 0 18px; padding: 15px 16px; text-align: center; font-size: .9rem; font-weight: 700; }
+        #loading-text { color: var(--purple-deep); background: #efecff; }
+        #loading-text::before { content: ''; display: inline-block; width: 13px; height: 13px; margin-right: 9px; border: 2px solid rgba(113,87,255,.25); border-top-color: var(--purple); border-radius: 50%; vertical-align: -2px; animation: spin .8s linear infinite; }
+        #error-text { color: #a32343; border: 1px solid #ffd3dc; background: #fff0f3; line-height: 1.45; }
+
+        /* Results */
+        #dashboard { margin-top: 24px !important; animation: enter .55s cubic-bezier(.2,.8,.2,1) both; }
+        .profile-card {
+            position: relative; overflow: hidden; isolation: isolate; color: white; padding: 24px 22px 21px; margin-bottom: 23px; border-radius: var(--radius-xl);
+            background: linear-gradient(125deg, #201949 0%, #38277b 56%, #5942c8 100%); box-shadow: 0 16px 35px rgba(43,29,113,.16);
+            animation: profileReveal .7s cubic-bezier(.16,1,.3,1) both;
+        }
+        .profile-card::before { content: ''; position: absolute; width: 185px; height: 185px; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; right: -38px; top: -97px; box-shadow: 0 0 0 16px rgba(255,255,255,.035), 0 0 0 34px rgba(255,255,255,.025); z-index: -1; }
+        .profile-card::after { content: '✦'; position: absolute; top: 20px; right: 21px; color: #ffe28f; font-size: 1.25rem; animation: bob 3s ease-in-out infinite; }
+        .profile-kicker { color: #bbb1ff; text-transform: uppercase; letter-spacing: .13em; font-size: .67rem; font-weight: 800; margin-bottom: 7px; }
+        .profile-card h2 { max-width: calc(100% - 25px); margin-bottom: 16px; font: 700 clamp(1.45rem, 5.7vw, 2rem)/1.15 'Space Grotesk', sans-serif; letter-spacing: -.04em; color: white; overflow-wrap: anywhere; }
+        .profile-details { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 17px; }
+        .profile-tag { display: grid; grid-template-columns: 118px minmax(0, 1fr); align-items: start; gap: 10px; width: 100%; max-width: 100%; overflow-wrap: anywhere; background: rgba(255,255,255,.105); color: #f0edff; border: 1px solid rgba(255,255,255,.13); padding: 10px 12px; border-radius: 12px; font-size: .78rem; line-height: 1.45; font-weight: 600; }
+        .profile-tag::before { color: #c9c1ff; font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; font-weight: 800; }
+        #profile-roll::before { content: 'Roll No.'; } #profile-branch::before { content: 'Branch'; } #profile-batch::before { content: 'Graduation Year'; } #profile-college::before { content: 'College'; }
+        .clear-data-wrap { display: flex; justify-content: center; padding: 18px 0 2px; }
+        .clear-data-btn { min-height: 44px; border: 1px solid #e5e0f1; background: #fff; color: #6c6683; padding: 0 16px; border-radius: 13px; font-size: .82rem; font-weight: 800; cursor: pointer; transition: .2s ease; }
+        .clear-data-btn:active { transform: scale(.97); background: #fff1f3; color: #a52845; }
+
+        .section-head { display: flex; align-items: end; justify-content: space-between; gap: 12px; margin: 24px 2px 12px; }
+        .section-title { font: 700 1.16rem/1.2 'Space Grotesk', sans-serif; letter-spacing: -.035em; }
+        .section-subtitle { color: var(--muted); font-size: .79rem; line-height: 1.4; margin-top: 5px; }
+        .section-icon { flex: 0 0 38px; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 13px; background: #eeebff; color: var(--purple-deep); font-size: 1.1rem; }
+        .toggles-wrapper { margin: 0 0 17px; }
+        .toggles-scroll { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 3px 2px 7px; scrollbar-width: none; overscroll-behavior-x: contain; }
+        .toggles-scroll::-webkit-scrollbar { display: none; }
+        .toggle-pill { position: relative; flex: 0 0 auto; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; padding: 0 15px; border-radius: 13px; color: #6e6a89; background: white; border: 1px solid #e9e5fa; box-shadow: 0 3px 8px rgba(39,30,96,.025); font-size: .83rem; font-weight: 800; cursor: pointer; transition: background .2s, color .2s, transform .2s, box-shadow .2s; }
+        .toggle-pill:active { transform: scale(.95); }
+        .toggle-pill.active { color: white; border-color: transparent; background: linear-gradient(135deg, #8069ff, #6044ef); box-shadow: 0 5px 13px rgba(97,69,239,.23); }
+        .toggle-pill input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+        .toggle-pill:focus-within { outline: 3px solid rgba(113,87,255,.35); outline-offset: 2px; }
+
+        .scorecard-zone { padding: 0; margin: 0 0 22px; border-radius: var(--radius-xl); background: transparent; }
+        .scorecard-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 2px 13px; }
+        .scorecard-heading h3 { font: 700 1.18rem 'Space Grotesk', sans-serif; letter-spacing: -.035em; }
+        .scorecard-label { color: #5c49ce; background: #ebe7ff; border-radius: 999px; padding: 7px 10px; font-size: .67rem; letter-spacing: .07em; text-transform: uppercase; font-weight: 800; white-space: nowrap; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 13px; }
+        .stat-card { position: relative; isolation: isolate; overflow: hidden; min-width: 0; min-height: 145px; display: flex; flex-direction: column; justify-content: space-between; padding: 17px 16px; border-radius: 21px; box-shadow: var(--shadow-soft); animation: cardPop .6s cubic-bezier(.16,1,.3,1) both; }
+        .stat-card:nth-child(2) { animation-delay: .09s; }
+        .stat-card.cpi { color: white; background: linear-gradient(145deg, #7c63ff 0%, #6547ee 65%, #593ee0 100%); }
+        .stat-card.pct { color: #392347; background: linear-gradient(145deg, #ffe6a7 0%, #ffd37b 72%, #ffc66b 100%); }
+        .stat-card::after { position: absolute; z-index: -1; content: ''; width: 102px; height: 102px; border-radius: 50%; border: 1px solid currentColor; opacity: .12; right: -28px; bottom: -48px; box-shadow: 0 0 0 11px rgba(255,255,255,.055), 0 0 0 24px rgba(255,255,255,.035); }
+        .stat-topline { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .stat-title { font-size: .71rem; font-weight: 800; text-transform: uppercase; letter-spacing: .085em; opacity: .88; line-height: 1.3; }
+        .stat-glyph { width: 31px; height: 31px; border-radius: 11px; display: grid; place-items: center; font-size: .95rem; background: rgba(255,255,255,.17); }
+        .pct .stat-glyph { background: rgba(255,255,255,.45); }
+        .stat-value { font: 700 clamp(2rem, 8vw, 2.75rem)/1 'Space Grotesk', sans-serif; letter-spacing: -.065em; margin-top: 15px; font-variant-numeric: tabular-nums; }
+        .stat-foot { font-size: .73rem; margin-top: 8px; opacity: .81; font-weight: 600; }
+        .chart-card, .predictor-card, .table-container { background: rgba(255,255,255,.94); border: 1px solid rgba(231,227,248,.92); border-radius: var(--radius-lg); box-shadow: var(--shadow-soft); }
+        .chart-card { padding: 19px 17px 16px; }
+        .chart-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+        .chart-card h4 { color: var(--ink); font: 700 1.06rem 'Space Grotesk', sans-serif; letter-spacing: -.025em; }
+        .chart-description { margin-top: 4px; color: var(--muted); font-size: .77rem; line-height: 1.45; }
+        .chart-pill { margin-left: auto; flex: 0 0 auto; font-size: .68rem; font-weight: 800; color: #238c7f; padding: 6px 8px; border-radius: 9px; background: #e4fbf5; }
+        .canvas-container { position: relative; height: 224px; width: 100%; }
+
+        .comeback-card { position: relative; overflow: hidden; background: linear-gradient(135deg, #fff1f1, #fff8f0); border: 1px solid #ffd9d8; border-radius: var(--radius-lg); padding: 19px; margin: 0 0 22px; animation: cardPop .55s cubic-bezier(.16,1,.3,1) both; }
+        .comeback-card::after { content: '↗'; position: absolute; top: 11px; right: 17px; font-size: 2rem; font-weight: 800; color: rgba(232,80,102,.13); }
+        .comeback-card h4 { color: #bc3950; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font: 700 1.06rem 'Space Grotesk', sans-serif; }
+        .comeback-card p { color: #85505a; font-size: .88rem; font-weight: 600; line-height: 1.65; }
+        .comeback-card b { color: #a72741; }
+
+        .predictor-card { padding: 19px; margin-bottom: 24px; border-color: #e8e1ff; background: linear-gradient(145deg, #fff 0%, #fbfaff 100%); }
+        .predictor-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 15px; }
+        .predictor-title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .predictor-icon { width: 39px; height: 39px; display: grid; place-items: center; flex: 0 0 39px; border-radius: 13px; background: #fff0cf; font-size: 1.16rem; }
+        .predictor-header h4 { font: 700 1.08rem 'Space Grotesk', sans-serif; letter-spacing: -.025em; }
+        .predictor-subtitle { color: var(--muted); font-size: .76rem; margin-top: 3px; }
+        .pred-type-toggle { display: flex; flex: 0 0 auto; gap: 3px; padding: 4px; background: #f0edfb; border-radius: 12px; }
+        .pred-btn { min-width: 47px; min-height: 35px; border: 0; padding: 0 10px; border-radius: 9px; font-size: .78rem; font-weight: 800; cursor: pointer; color: #77718e; background: transparent; transition: all .2s ease; }
+        .pred-btn:active { transform: scale(.95); }
+        .pred-btn.active { color: white; background: linear-gradient(135deg, #826cff, #6245ed); box-shadow: 0 3px 8px rgba(97,69,239,.22); }
+        .pred-input-label { display: block; color: #615b7d; font-size: .76rem; font-weight: 800; margin-bottom: 7px; }
+        .pred-input-group input { width: 100%; min-height: 51px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid #e6e1f7; background: #fff; color: var(--ink); font-size: 1.05rem; font-weight: 700; outline: none; transition: border-color .2s, box-shadow .2s; }
+        .pred-input-group input::placeholder { color: #b6b0c9; font-weight: 500; }
+        .pred-input-group input:focus { border-color: var(--purple); box-shadow: 0 0 0 4px rgba(113,87,255,.11); }
+        .pred-max { display: block; color: var(--muted); font-size: .75rem; margin-top: 9px; line-height: 1.45; }
+        .pred-result { display: none; margin-top: 13px; padding: 14px; border: 1px solid #d8f5eb; background: linear-gradient(130deg, #e8fff7, #f4fffb); border-radius: 14px; font-size: .88rem; line-height: 1.6; font-weight: 600; color: #276b60; animation: cardPop .3s ease both; }
+        .pred-result b { color: #14594f; font-weight: 800; }
+
+        .logs-heading { margin: 25px 2px 12px; display: flex; align-items: center; gap: 10px; }
+        .logs-heading h4 { font: 700 1.1rem 'Space Grotesk', sans-serif; letter-spacing: -.025em; }
+        .logs-heading p { color: var(--muted); font-size: .76rem; margin-top: 4px; }
+        .table-container { padding: 5px 12px 9px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: .79rem; min-width: 0; }
+        th { text-align: left; padding: 13px 5px; color: #827c9a; font-size: .65rem; text-transform: uppercase; letter-spacing: .065em; font-weight: 800; border-bottom: 1px solid #eeeaf8; }
+        td { padding: 14px 5px; border-bottom: 1px solid #f0edf8; font-weight: 600; color: #4d4966; overflow-wrap: anywhere; }
+        tbody tr:last-child td { border-bottom: 0; }
+        tbody tr { transition: background .2s; }
+        tbody tr:hover { background: #faf9ff; }
+        .tag-pass, .tag-fail { display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; padding: 5px 7px; font-size: .66rem; line-height: 1.1; font-weight: 800; }
+        .tag-pass { color: #17795b; background: #ddf9eb; }
+        .tag-fail { color: #a52845; background: #ffe4e9; }
+        .footer-note { margin: 22px 5px 3px; display: flex; justify-content: center; align-items: center; gap: 7px; color: #9893ad; text-align: center; font-size: .72rem; line-height: 1.5; }
+        .footer-note span { color: #7c6ae6; }
+
+        /* Compact upload access after analysis */
+        body:has(#dashboard[style*="display: block"]) .intro-hero { display: none; }
+        body:has(#dashboard[style*="display: block"]) .upload-card { min-height: 0; flex-direction: row; justify-content: flex-start; text-align: left; gap: 12px; padding: 12px 14px; margin-bottom: 18px; border-style: solid; border-width: 1px; border-radius: 17px; }
+        body:has(#dashboard[style*="display: block"]) .upload-card::before, body:has(#dashboard[style*="display: block"]) .upload-hint { display: none; }
+        body:has(#dashboard[style*="display: block"]) .upload-icon { width: 42px; height: 42px; flex: 0 0 42px; margin: 0; border-radius: 13px; font-size: 1.15rem; animation: none; }
+        body:has(#dashboard[style*="display: block"]) .upload-card h3 { font: 700 .87rem 'DM Sans', sans-serif; }
+        body:has(#dashboard[style*="display: block"]) .upload-card p { font-size: .73rem; margin-top: 3px; }
+        body:has(#dashboard[style*="display: block"]) .upload-copy { min-width: 0; }
+        body:has(#dashboard[style*="display: block"]) .header { padding-bottom: 15px; }
+
+        @keyframes enter { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes profileReveal { 0% { opacity: 0; transform: translateY(16px) scale(.985); } 70% { opacity: 1; } 100% { transform: translateY(0) scale(1); } }
+        @keyframes cardPop { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes bob { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-7px) rotate(3deg); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes slowSpin { to { transform: rotate(360deg); } }
+        @keyframes shine { 0%,70%,100% { transform: rotate(-45deg) translateY(-45px); } 82% { transform: rotate(-45deg) translateY(55px); } }
+
+        @media (min-width: 700px) {
+            body { padding: 26px 26px 50px; }
+            .header { padding-bottom: 26px; }
+            .intro-hero { min-height: 245px; padding: 34px 35px; }
+            .intro-hero h1 { max-width: 540px; }
+            .upload-card { min-height: 205px; }
+            .profile-card { padding: 28px 30px 25px; }
+            .profile-details { gap: 9px; }
+            .profile-tag { font-size: .78rem; padding: 8px 11px; }
+            .stats-grid { gap: 16px; }
+            .stat-card { min-height: 165px; padding: 21px; }
+            .chart-card { padding: 23px; }
+            .canvas-container { height: 270px; }
+            .predictor-card { padding: 24px; }
+        }
+        @media (max-width: 370px) {
+            body { padding-left: 11px; padding-right: 11px; }
+            .brand-mark { width: 39px; height: 39px; flex-basis: 39px; border-radius: 13px; }
+            .brand-name { font-size: .96rem; }
+            .brand-kicker { font-size: .57rem; }
+            .share-btn { padding: 0 10px; font-size: .77rem; }
+            .intro-hero { padding: 23px 19px; }
+            .stats-grid { gap: 9px; }
+            .stat-card { padding: 14px 12px; min-height: 137px; }
+            .stat-title { font-size: .64rem; }
+            .stat-value { font-size: 2rem; }
+            .predictor-header { align-items: flex-start; }
+            .predictor-icon { width: 34px; height: 34px; flex-basis: 34px; }
+            .pred-btn { min-width: 39px; padding: 0 7px; }
+            .table-container { padding-left: 8px; padding-right: 8px; }
+            th { font-size: .60rem; letter-spacing: .03em; }
+            td { font-size: .73rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+        }
+        .creator-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 32px;
+    padding-bottom: 12px;
+}
+.creator-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px 10px 10px;
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    box-shadow: 0 4px 14px rgba(48, 36, 116, 0.04);
+    text-decoration: none;
+    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+.creator-badge:hover {
+    background: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(48, 36, 116, 0.08);
+}
+.creator-avatar {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #f0edff, #e4fdf7);
+    border-radius: 50%;
+    font-size: 1.1rem;
+    box-shadow: inset 0 0 0 1px rgba(113,87,255,.08);
+}
+.creator-info {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+.creator-title {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 800;
+    color: var(--muted);
+    margin-bottom: 2px;
+}
+.creator-link {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--purple-deep);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+    </style>
+</head>
+<body>
+    
+<div class="app-container">
+    <header class="header">
+        <div class="brand" aria-label="CSVTU Analytics">
+            <div class="brand-mark" aria-hidden="true">✳</div>
+            <div class="brand-copy">
+                <div class="brand-name">CSVTU Analytics</div>
+                <div class="brand-kicker">Your academic report</div>
+            </div>
+        </div>
+    </header>
+
+    <section class="intro-hero" aria-labelledby="hero-title">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> Your academic story, decoded</div>
+        <h1 id="hero-title">Your grades.<br><span>Your next move.</span></h1>
+        <p>Turn your marksheets into a clearer picture of your progress — and the goals still within reach.</p>
+        <span class="hero-spark one" aria-hidden="true">✦</span>
+        <span class="hero-spark two" aria-hidden="true">✧</span>
+    </section>
+
+    <label class="upload-card" for="file-upload" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('file-upload').click();}">
+        <span class="upload-icon" aria-hidden="true">📄</span>
+        <div class="upload-copy">
+            <h3>Bring your marksheets to life</h3>
+            <p>Upload separate semester PDFs or one combined PDF containing multiple semester results.</p>
+            <span class="upload-hint"><span aria-hidden="true">＋</span> Select one or more PDFs</span>
+        </div>
+        <input type="file" id="file-upload" multiple accept="application/pdf" aria-label="Select semester result PDFs">
+    </label>
+
+    <div id="loading-text" role="status" aria-live="polite">Analyzing your academic performance... 🧬</div>
+    <div id="error-text" role="alert"></div>
+
+    <section id="profile-container" class="profile-card" style="display: none;" aria-label="Student profile">
+        <div class="profile-kicker">The journey so far</div>
+        <h2 id="profile-name">Welcome!</h2>
+        <div class="profile-details">
+            <span class="profile-tag" id="profile-roll">--</span>
+            <span class="profile-tag" id="profile-branch">--</span>
+            <span class="profile-tag" id="profile-batch">Graduation Year --</span>
+            <span class="profile-tag" id="profile-college">--</span>
+        </div>
+    </section>
+
+    <main id="dashboard" style="display: none;">
+        <div class="section-head">
+            <div><div class="section-title">Your academic snapshot</div><div class="section-subtitle">Choose semesters to explore your results.</div></div>
+            <div class="section-icon" aria-hidden="true">✧</div>
+        </div>
+        <div class="toggles-wrapper">
+            <div class="toggles-scroll" id="semester-toggles" aria-label="Choose semesters"></div>
+        </div>
+
+        <section id="scorecard-zone" class="scorecard-zone" aria-label="Academic scorecard">
+            <div class="scorecard-heading">
+                <h3>Your scorecard</h3>
+                <span class="scorecard-label">Made for your progress</span>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card cpi">
+                    <div class="stat-topline"><div class="stat-title">Overall CGPA</div><div class="stat-glyph" aria-hidden="true">✦</div></div>
+                    <div><div class="stat-value" id="final-cpi">--</div><div class="stat-foot">Your cumulative grade point</div></div>
+                </div>
+                <div class="stat-card pct">
+                    <div class="stat-topline"><div class="stat-title">Aggregate %</div><div class="stat-glyph" aria-hidden="true">％</div></div>
+                    <div><div class="stat-value" id="final-percentage">--%</div><div class="stat-foot">Marks across selected semesters</div></div>
+                </div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-head">
+                    <div><h4>Performance trend</h4><p class="chart-description">Follow your semester-by-semester progress.</p></div>
+                    <span class="chart-pill">YOUR JOURNEY</span>
+                </div>
+                <div class="canvas-container"><canvas id="trendChart" aria-label="Line chart showing SPI and percentage by semester"></canvas></div>
+            </div>
+        </section>
+
+        <section class="comeback-card" id="comeback-container" style="display: none;" aria-live="polite">
+            <h4><span aria-hidden="true">↗</span> Your comeback plan</h4>
+            <p id="comeback-text"></p>
+        </section>
+
+        <section class="predictor-card" id="predictor-container">
+            <div class="predictor-header">
+                <div class="predictor-title-wrap">
+                    <div class="predictor-icon" aria-hidden="true">🎯</div>
+                    <div><h4>Goal predictor</h4><p class="predictor-subtitle">See what your target could take.</p></div>
+                </div>
+                <div class="pred-type-toggle" role="group" aria-label="Goal type">
+                    <button class="pred-btn active" onclick="setPredType('PCT')" id="btn-pct" aria-pressed="true">%</button>
+                    <button class="pred-btn" onclick="setPredType('CGPA')" id="btn-cgpa" aria-pressed="false">CGPA</button>
+                </div>
+            </div>
+            <label class="pred-input-label" for="target-input">Your target</label>
+            <div class="pred-input-group"><input type="number" id="target-input" step="0.1" inputmode="decimal" placeholder="e.g. 75" aria-describedby="theoretical-max predictor-output"></div>
+            <span class="pred-max" id="theoretical-max"></span>
+            <div class="pred-result" id="predictor-output" aria-live="polite"></div>
+        </section>
+
+        <section aria-labelledby="logs-title">
+            <div class="logs-heading"><div class="section-icon" aria-hidden="true">▤</div><div><h4 id="logs-title">Semester breakdown</h4><p>Marks, calculated SPI and result status.</p></div></div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th scope="col">Sem</th><th scope="col">Marks</th><th scope="col">Calc SPI</th><th scope="col">Status</th></tr></thead>
+                    <tbody id="debug-table-body"></tbody>
+                </table>
+            </div>
+        </section>
+        <div class="footer-note"><span aria-hidden="true">✦</span> Your results are processed in this browser. Keep moving forward.</div>
+        <div class="clear-data-wrap"><button class="clear-data-btn" id="clear-data-btn" onclick="clearStudentData()">Clear my data</button></div>
+        <div class="creator-wrapper">
+            <a href="https://t.me/yxxshv" target="_blank" class="creator-badge" aria-label="Contact creator on Telegram">
+                <div class="creator-avatar" aria-hidden="true">👨‍💻</div>
+                <div class="creator-info">
+                    <span class="creator-title">Built with 🔥 by YS</span>
+                    <span class="creator-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                        @yxxshv
+                    </span>
+                </div>
+            </a>
+        </div>
+    </main>
+</div>
+<script>
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    }
+
+    let rawParsedSemesters = []; 
+    let uniqueSems = {}; 
+    let trendChartInstance = null;
+    
+    // Global Profile Data
+    let profileData = { name: "", roll: "", branch: "", college: "", gradYear: null };
+
+    let predCurrentCGPA_N = 0, predCurrentCGPA_D = 0;
+    let predCurrentPCT_Max = 0, predCurrentPCT_Obt = 0;
+    let predHighestSem = 0;
+    let currentPredType = 'PCT'; 
+    const STD_CREDITS = 21, STD_MAX = 1000;
+
+    const awesomeGreetings = [
+        "Ready to crush it,", "Welcome back,", "Looking good,", "Let's analyze,", "Top tier,"
+    ];
+
+    document.getElementById('file-upload').addEventListener('change', async function(e) {
+        let files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        document.getElementById('error-text').style.display = 'none';
+        document.getElementById('loading-text').style.display = 'block';
+        document.getElementById('dashboard').style.display = 'none';
+        
+        document.getElementById('profile-container').style.display = 'none';
+        rawParsedSemesters = [];
+        profileData = { name: "", roll: "", branch: "", college: "", lowestSemInfo: null };
+
+        try {
+            for (let file of files) {
+                const semesterResults = await extractDataFromPDF(file);
+                rawParsedSemesters.push(...semesterResults.filter(data => data.semester !== null));
+            }
+
+            if (rawParsedSemesters.length === 0) throw new Error("Could not detect CSVTU data.");
+
+            buildSmartRVData();
+            updateProfileUI();
+            renderToggles();
+            calculateDashboard();
+            
+            document.getElementById('loading-text').style.display = 'none';
+            document.getElementById('profile-container').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'block';
+            
+            
+        } catch (err) {
+            console.error(err);
+            document.getElementById('loading-text').style.display = 'none';
+            document.getElementById('error-text').innerText = "Oops! " + err.message;
+            document.getElementById('error-text').style.display = 'block';
+        }
+        e.target.value = '';
+    });
+
+    async function extractDataFromPDF(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pageTexts = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            textContent.items.sort((a, b) => {
+                let yA = a.transform ? a.transform[5] : 0;
+                let yB = b.transform ? b.transform[5] : 0;
+                let xA = a.transform ? a.transform[4] : 0;
+                let xB = b.transform ? b.transform[4] : 0;
+                if (Math.abs(yA - yB) < 12) return xA - xB;
+                return yB - yA;
+            });
+            pageTexts.push(textContent.items.map(item => item.str).join(" ") + " \n");
+        }
+        // Parse each page independently so a single combined PDF can yield multiple semesters.
+        // If a marksheet's result spans pages, also try the complete document as a fallback.
+        let results = pageTexts.map((text, i) => parseCSVTUText(text, `${file.name} · page ${i + 1}`)).filter(d => d.semester !== null);
+        if (!results.length) {
+            const combined = parseCSVTUText(pageTexts.join(" \n"), file.name);
+            if (combined.semester !== null) results = [combined];
+        }
+        return results;
+    }
+
+    function parseCSVTUText(text, fileName) {
+        let semester = null, maxMarks = 0, obtMarks = 0, passedN = 0, passedD = 0, failedD = 0;
+
+        // --- Profile Extraction ---
+        if (!profileData.name) {
+            let nMatch = text.match(/STUDENT\s*NAME\s*:?\s*(.*?)(?:\s+FATHER|\s+COURSE|\s+ENROLLMENT)/i);
+            if (nMatch) profileData.name = nMatch[1].trim().replace(/\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.substr(1).toLowerCase());
+        }
+        if (!profileData.roll) {
+            let rMatch = text.match(/ROLL\s*NUMBER\s*:\s*([A-Z0-9]+)/i);
+            if (rMatch) profileData.roll = rMatch[1];
+        }
+        if (!profileData.branch) {
+            let bMatch = text.match(/COURSE\s*\/\s*BRANCH\s*:\s*(.+?)\s+EXAM/i);
+            if (bMatch) profileData.branch = bMatch[1].replace('B Tech ', '').trim();
+        }
+        if (!profileData.college) {
+            let cMatch = text.match(/INSTITUTE\s*NAME\s*:\s*(.+?)\s+(?:ABC|S\.No)/i);
+            if (cMatch) profileData.college = cMatch[1].trim();
+        }
+
+        const semMatch = text.match(/SEM\s*\/\s*LEVEL\s*\/\s*YEAR:\s*(\d+)/i);
+        if (semMatch) semester = parseInt(semMatch[1]);
+
+        
+        let yearMatch = text.match(/EXAM\s+SESSION\s*:\s*[A-Za-z\-]+\s*(\d{4})/i);
+        if (yearMatch && semester) {
+        let examYear = parseInt(yearMatch[1]);
+    
+    // Predict grad year for THIS specific marksheet
+        let yearsRemaining = Math.ceil((8 - semester) / 2);
+        let predictedGradYear = examYear + yearsRemaining;
+    
+    // The true batch year is always the earliest predicted year across all marksheets
+        if (!profileData.gradYear || predictedGradYear < profileData.gradYear) {
+        profileData.gradYear = predictedGradYear;
+        }
+        }
+
+        const resultMatch = text.match(/(\d{3,4})[\s\|]+(\d{2,4})[\s\|]+RESULT\s*:\s*([A-Za-z\-]+)/i);
+        let status = resultMatch ? resultMatch[3].toUpperCase() : "";
+        if (resultMatch) { maxMarks = parseInt(resultMatch[1]); obtMarks = parseInt(resultMatch[2]); }
+
+        const gradeRegex = /\b(A\s*\+|A|B\s*\+|B|C\s*\+|C|D|P|F)[\s\|]+(\d{1,2})[\s\|]+(\d{1,2})\b/gi;
+        let match;
+        while ((match = gradeRegex.exec(text)) !== null) {
+            let letter = match[1].replace(/\s+/g, '').toUpperCase();
+            let gp = parseInt(match[2]), cp = parseInt(match[3]);
+            if (gp <= 10 && cp <= 10) {
+                if (letter === 'F') { failedD += cp; } 
+                else { passedN += (gp*cp); passedD += cp; }
+            }
+        }
+        return { semester, maxMarks, obtMarks, passedN, passedD, failedD, status, fileName };
+    }
+
+    function buildSmartRVData() {
+        uniqueSems = {};
+        rawParsedSemesters.forEach(d => {
+            if (!uniqueSems[d.semester] || uniqueSems[d.semester].obtMarks < d.obtMarks) uniqueSems[d.semester] = d;
+        });
+    }
+
+    function updateProfileUI() {
+        if (profileData.name) {
+            let firstName = profileData.name.split(' ')[0];
+            let randGreet = awesomeGreetings[Math.floor(Math.random() * awesomeGreetings.length)];
+            document.getElementById('profile-name').innerHTML = `${randGreet} ${firstName}! 🚀`;
+        }
+        document.getElementById('profile-roll').innerText = profileData.roll || 'N/A';
+        document.getElementById('profile-branch').innerText = profileData.branch || 'B.Tech';
+        
+        document.getElementById('profile-college').innerText = profileData.college || 'Not detected';
+
+        if (profileData.gradYear) {
+        document.getElementById('profile-batch').innerText = `${profileData.gradYear}`;
+        } else {
+        document.getElementById('profile-batch').innerText = 'Not detected';
+        }
+    }
+
+    function renderToggles() {
+        const container = document.getElementById('semester-toggles');
+        container.innerHTML = '';
+        Object.keys(uniqueSems).sort((a, b) => a - b).forEach(sem => {
+            let el = document.createElement('label');
+            el.className = 'toggle-pill active';
+            el.innerHTML = `<input type="checkbox" value="${sem}" checked onchange="toggleSem(this)"> Sem ${sem}`;
+            container.appendChild(el);
+        });
+    }
+
+    function toggleSem(cb) {
+        if(cb.checked) cb.parentElement.classList.add('active');
+        else cb.parentElement.classList.remove('active');
+        calculateDashboard();
+    }
+
+    function calculateDashboard() {
+        let activeKeys = Array.from(document.querySelectorAll('#semester-toggles input:checked')).map(cb => cb.value);
+        let activeData = activeKeys.map(k => uniqueSems[k]).sort((a,b) => a.semester - b.semester);
+        
+        predCurrentCGPA_N = 0; predCurrentCGPA_D = 0;
+        predCurrentPCT_Max = 0; predCurrentPCT_Obt = 0;
+        
+        let failedSemesterCount = 0; 
+
+        const tbody = document.getElementById('debug-table-body');
+        tbody.innerHTML = '';
+
+        activeData.forEach(d => {
+            let w = (d.semester === 1 || d.semester === 2) ? 0.5 : 1.0;
+            
+            predCurrentPCT_Max += (d.maxMarks * w);
+            predCurrentPCT_Obt += (d.obtMarks * w);
+
+            let isFail = d.status.includes("FAIL") || d.failedD > 0;
+            let calcSPI = "N/A";
+            
+            if (isFail) {
+                failedSemesterCount++;
+                
+                tbody.innerHTML += `<tr>
+                    <td>Sem ${d.semester}</td>
+                    <td><b style="color:var(--text-dark)">${d.obtMarks}</b> <span style="font-size:0.75rem">/ ${d.maxMarks}</span></td>
+                    <td><b>Skip</b></td>
+                    <td><span class="tag-fail">Failed</span></td>
+                </tr>`;
+            } else {
+                predCurrentCGPA_N += (d.passedN * w);
+                predCurrentCGPA_D += (d.passedD * w);
+                
+                calcSPI = d.passedD > 0 ? (d.passedN / d.passedD).toFixed(2) : "0.00";
+                tbody.innerHTML += `<tr>
+                    <td>Sem ${d.semester}</td>
+                    <td><b style="color:var(--text-dark)">${d.obtMarks}</b> <span style="font-size:0.75rem">/ ${d.maxMarks}</span></td>
+                    <td><b>${calcSPI}</b></td>
+                    <td><span class="tag-pass">Pass</span></td>
+                </tr>`;
+            }
+        });
+
+        if (predCurrentPCT_Max > 0) {
+            document.getElementById('final-percentage').innerText = ((predCurrentPCT_Obt / predCurrentPCT_Max) * 100).toFixed(2) + "%";
+        } else {
+            document.getElementById('final-percentage').innerText = "--%";
+        }
+        
+        if (predCurrentCGPA_D > 0) {
+            document.getElementById('final-cpi').innerText = (Math.floor((predCurrentCGPA_N / predCurrentCGPA_D) * 100) / 100).toFixed(2);
+        } else {
+            document.getElementById('final-cpi').innerText = "--";
+        }
+
+        const cbCard = document.getElementById('comeback-container');
+        if (failedSemesterCount > 0) {
+            const plural = failedSemesterCount === 1 ? 'semester is' : 'semesters are';
+            document.getElementById('comeback-text').innerHTML = `<b>${failedSemesterCount} ${plural} marked as having a backlog.</b> This does not define your potential. Clearing them can improve your academic standing.`;
+            cbCard.style.display = 'block';
+        } else {
+            cbCard.style.display = 'none';
+        }
+
+        predHighestSem = activeData.length > 0 ? activeData[activeData.length - 1].semester : 0;
+        updateCharts(activeData);
+        runPredictorMath();
+    }
+
+    function setPredType(type) {
+        currentPredType = type;
+        document.getElementById('btn-pct').className = `pred-btn ${type === 'PCT' ? 'active' : ''}`;
+        document.getElementById('btn-cgpa').className = `pred-btn ${type === 'CGPA' ? 'active' : ''}`;
+        
+        let inputEl = document.getElementById('target-input');
+        inputEl.placeholder = type === 'PCT' ? "e.g. 75" : "e.g. 7.5";
+        inputEl.min = type === 'PCT' ? "40" : "4";
+        inputEl.max = type === 'PCT' ? "100" : "10";
+        runPredictorMath(); 
+    }
+
+    document.getElementById('target-input').addEventListener('input', runPredictorMath);
+
+    function runPredictorMath() {
+        if (predHighestSem >= 8) { document.getElementById('predictor-container').style.display = 'none'; return; }
+        
+        let remainingSems = 8 - predHighestSem;
+        let remD = remainingSems * STD_CREDITS;
+        let remMax = remainingSems * STD_MAX;
+        
+        let maxPossibleN = predCurrentCGPA_N + (10 * remD);
+        let maxCGPA = (predCurrentCGPA_D + remD) > 0 ? maxPossibleN / (predCurrentCGPA_D + remD) : 0;
+        
+        let maxPossibleObt = predCurrentPCT_Obt + remMax;
+        let maxPCT = (predCurrentPCT_Max + remMax) > 0 ? (maxPossibleObt / (predCurrentPCT_Max + remMax)) * 100 : 0;
+
+        let boundsText = currentPredType === 'PCT' ? maxPCT.toFixed(2) + '%' : maxCGPA.toFixed(2) + ' CGPA';
+        document.getElementById('theoretical-max').innerText = `Maximum mathematically possible: ${boundsText}`;
+
+        let target = parseFloat(document.getElementById('target-input').value);
+        let out = document.getElementById('predictor-output');
+        
+        if (!target) { out.style.display = 'none'; return; }
+        out.style.display = 'block';
+
+        if (currentPredType === 'PCT') {
+            if (target > maxPCT) {
+                out.innerHTML = `⚠️ Impossible. Even with 100% marks, you max out at <b>${maxPCT.toFixed(2)}%</b>.`;
+                return;
+            }
+            let targetObtTotal = (target / 100) * (predCurrentPCT_Max + remMax);
+            let reqObt = targetObtTotal - predCurrentPCT_Obt;
+            let requiredMarksPerSem = reqObt / remainingSems;
+            out.innerHTML = `To hit <b>${target}%</b>, you need an average of <b>${Math.ceil(requiredMarksPerSem)} marks</b> (out of 1000) for the next ${remainingSems} sem(s).`;
+        } else {
+            if (target > maxCGPA) {
+                out.innerHTML = `⚠️ Impossible. Even with perfect 10 SPIs, you max out at <b>${maxCGPA.toFixed(2)}</b>.`;
+                return;
+            }
+            let reqN = (target * (predCurrentCGPA_D + remD)) - predCurrentCGPA_N;
+            let reqSPI = reqN / remD;
+            out.innerHTML = `To hit <b>${target} CGPA</b>, average <b>${reqSPI.toFixed(2)} SPI</b> for the next ${remainingSems} sem(s).`;
+        }
+    }
+
+    function updateCharts(activeData) {
+        let labels = activeData.map(d => `S${d.semester}`);
+        
+        if(trendChartInstance) trendChartInstance.destroy();
+        trendChartInstance = new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'SPI', data: activeData.map(d=>(d.passedD>0 && !d.status.includes("FAIL") ? (d.passedN/d.passedD).toFixed(2) : null)), borderColor: '#6366f1', backgroundColor: '#6366f1', tension: 0.4, yAxisID: 'y', spanGaps: true },
+                    { label: '%', data: activeData.map(d=>((d.obtMarks/d.maxMarks)*100).toFixed(2)), borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.4, yAxisID: 'y1' }
+                ]
+            },
+            options: { 
+                responsive: true, maintainAspectRatio: false, 
+                animation: false, // <-- Crucial fix for HTML2Canvas blank page rendering
+                scales: { y: { min: 4, max: 10 }, y1: { position: 'right', min: 40, max: 100, grid: {drawOnChartArea: false} } } 
+            }
+        });
+    }
+
+    function clearStudentData() {
+        if (!confirm('Clear the marksheets and results currently shown? This only clears this page; your original PDF files will not be deleted.')) return;
+        rawParsedSemesters = [];
+        uniqueSems = {};
+        profileData = { name: "", roll: "", branch: "", college: "", gradYear: null };
+        predCurrentCGPA_N = 0; predCurrentCGPA_D = 0;
+        predCurrentPCT_Max = 0; predCurrentPCT_Obt = 0; predHighestSem = 0;
+        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+        document.getElementById('file-upload').value = '';
+        document.getElementById('profile-container').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'none';
+        document.getElementById('share-btn').style.display = 'none';
+        document.getElementById('loading-text').style.display = 'none';
+        document.getElementById('error-text').style.display = 'none';
+        document.getElementById('semester-toggles').innerHTML = '';
+        document.getElementById('debug-table-body').innerHTML = '';
+        document.getElementById('target-input').value = '';
+        document.getElementById('predictor-output').style.display = 'none';
+        document.getElementById('theoretical-max').textContent = '';
+        document.getElementById('comeback-container').style.display = 'none';
+        document.getElementById('final-cpi').textContent = '--';
+        document.getElementById('final-percentage').textContent = '--%';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+</script>
+</body>
+</html>
